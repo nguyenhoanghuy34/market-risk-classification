@@ -10,39 +10,19 @@ Usage:
 # ==========================================================
 
 import sqlite3
+
+from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
-
-
-# ==========================================================
-# Paths
-# ==========================================================
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 ARTIFACT_DIR = PROJECT_ROOT / "artifacts"
 
-MLFLOW_DB = ARTIFACT_DIR / "mlflow.db"
-
-REPORT_DIR = PROJECT_ROOT / "reports"
-
-REPORT_FILE = REPORT_DIR / "mlflow_summary.txt"
 
 # ==========================================================
-# Database
+# Database Helper
 # ==========================================================
-
-def connect_db() -> sqlite3.Connection:
-    """
-    Connect to MLflow SQLite database.
-    """
-
-    if not MLFLOW_DB.exists():
-        raise FileNotFoundError(
-            f"MLflow database not found:\n{MLFLOW_DB}"
-        )
-
-    return sqlite3.connect(MLFLOW_DB)
-
 
 def execute_query(
     conn: sqlite3.Connection,
@@ -56,13 +36,20 @@ def execute_query(
 
     cursor.execute(query)
 
-    return cursor.fetchall()
+    rows = cursor.fetchall()
+
+    cursor.close()
+
+    return rows
+
 
 # ==========================================================
 # Query
 # ==========================================================
 
-def get_experiments(conn: sqlite3.Connection):
+def get_experiments(
+    conn: sqlite3.Connection,
+):
     """
     Return all active experiments.
     """
@@ -76,12 +63,19 @@ def get_experiments(conn: sqlite3.Connection):
         ORDER BY experiment_id;
     """
 
-    return execute_query(conn, query)
+    rows = execute_query(conn, query)
+
+    return {
+        experiment_id: name
+        for experiment_id, name in rows
+    }
 
 
-def get_runs(conn: sqlite3.Connection):
+def get_runs(
+    conn: sqlite3.Connection,
+):
     """
-    Return all finished runs.
+    Return all active runs.
     """
 
     query = """
@@ -99,9 +93,11 @@ def get_runs(conn: sqlite3.Connection):
     return execute_query(conn, query)
 
 
-def get_metrics(conn: sqlite3.Connection):
+def get_metrics(
+    conn: sqlite3.Connection,
+):
     """
-    Return all latest metrics.
+    Return latest metrics of every run.
     """
 
     query = """
@@ -115,9 +111,11 @@ def get_metrics(conn: sqlite3.Connection):
     return execute_query(conn, query)
 
 
-def get_params(conn: sqlite3.Connection):
+def get_params(
+    conn: sqlite3.Connection,
+):
     """
-    Return all parameters.
+    Return all parameters of every run.
     """
 
     query = """
@@ -132,46 +130,36 @@ def get_params(conn: sqlite3.Connection):
 
 
 # ==========================================================
-# Builder
+# Processing
 # ==========================================================
 
-from collections import defaultdict
-
-
 def build_run_summary(
+    experiments,
     runs,
     metrics,
     params,
 ):
     """
-    Merge runs, metrics and params into a single structure.
-
-    Returns
-    -------
-    list[dict]
+    Combine MLflow tables into readable structure.
     """
 
-    # -----------------------------
-    # Metrics
-    # -----------------------------
-
-    metric_map = defaultdict(dict)
+    metric_map = {}
 
     for run_uuid, key, value in metrics:
+        if run_uuid not in metric_map:
+            metric_map[run_uuid] = {}
+
         metric_map[run_uuid][key] = value
 
-    # -----------------------------
-    # Params
-    # -----------------------------
 
-    param_map = defaultdict(dict)
+    param_map = {}
 
     for run_uuid, key, value in params:
+        if run_uuid not in param_map:
+            param_map[run_uuid] = {}
+
         param_map[run_uuid][key] = value
 
-    # -----------------------------
-    # Merge
-    # -----------------------------
 
     summary = []
 
@@ -183,225 +171,153 @@ def build_run_summary(
         end_time,
     ) in runs:
 
-        run = {
-            "run_id": run_uuid,
-            "experiment_id": experiment_id,
-            "status": status,
-            "start_time": start_time,
-            "end_time": end_time,
-            "metrics": metric_map.get(run_uuid, {}),
-            "params": param_map.get(run_uuid, {}),
-        }
-
-        summary.append(run)
+        summary.append(
+            {
+                "run_id": run_uuid,
+                "experiment": experiments.get(
+                    experiment_id,
+                    "unknown",
+                ),
+                "status": status,
+                "start_time": start_time,
+                "end_time": end_time,
+                "params": param_map.get(
+                    run_uuid,
+                    {},
+                ),
+                "metrics": metric_map.get(
+                    run_uuid,
+                    {},
+                ),
+            }
+        )
 
     return summary
 
 
-# ==========================================================
-# Formatter
-# ==========================================================
-
-from datetime import datetime
-
-
-def format_timestamp(timestamp_ms):
-    """
-    Convert MLflow timestamp (milliseconds) to readable datetime.
-    """
-
-    if timestamp_ms is None:
-        return "-"
-
-    return datetime.fromtimestamp(
-        timestamp_ms / 1000
-    ).strftime("%Y-%m-%d %H:%M:%S")
-
-
-def format_duration(start_ms, end_ms):
-    """
-    Convert milliseconds to seconds.
-    """
-
-    if start_ms is None or end_ms is None:
-        return "-"
-
-    seconds = (end_ms - start_ms) / 1000
-
-    return f"{seconds:.2f} s"
-
-
-def format_metric(metrics, key):
-    """
-    Return metric with 4 decimal places.
-    """
-
-    value = metrics.get(key)
-
-    if value is None:
-        return "-"
-
-    return f"{float(value):.4f}"
-
-
-def get_model_name(params):
-    """
-    Return model name from MLflow params.
-
-    Fallback if not found.
-    """
-
-    for key in (
-        "model_name",
-        "model",
-        "classifier",
-        "algorithm",
-    ):
-        if key in params:
-            return params[key]
-
-    return "Unknown"
-
 
 # ==========================================================
-# Report
+# Formatting Report
 # ==========================================================
 
-def build_report(summary):
+def format_run_report(
+    summary,
+):
     """
-    Build report text.
+    Convert MLflow runs into leaderboard table.
     """
 
     lines = []
 
-    separator = "=" * 120
-    divider = "-" * 120
-
-    # ------------------------------------------------------
-    # Header
-    # ------------------------------------------------------
-
-    lines.append(separator)
-    lines.append("MLFLOW TRAINING HISTORY")
-    lines.append(separator)
-    lines.append("")
-
     header = (
         f"{'No':<4}"
-        f"{'Model':<24}"
-        f"{'Accuracy':<11}"
-        f"{'Precision':<11}"
-        f"{'Recall':<11}"
-        f"{'F1':<11}"
-        f"{'Time':<10}"
-        f"{'Status':<12}"
-        f"{'Created'}"
+        f"{'Experiment':<15}"
+        f"{'Model':<15}"
+        f"{'Accuracy':<10}"
+        f"{'Precision':<10}"
+        f"{'Recall':<8}"
+        f"{'F1':<7}"
+        f"{'Time':<8}"
+        f"{'Status':<10}"
+        f"{'Created':<12}"
     )
 
+    lines.append("=" * 110)
     lines.append(header)
-    lines.append(divider)
+    lines.append("-" * 110)
 
-    # ------------------------------------------------------
-    # Body
-    # ------------------------------------------------------
-
-    best_accuracy = -1.0
-    best_model = "-"
-    latest_run = "-"
 
     for index, run in enumerate(summary, start=1):
 
-        lines.append(
-            build_table_row(index, run)
+        params = run["params"]
+        metrics = run["metrics"]
+
+
+        model = params.get(
+            "model",
+            "Unknown"
         )
 
-        model_name = get_model_name(run["params"])
 
-        accuracy = run["metrics"].get("accuracy")
-
-        if accuracy is not None:
-
-            accuracy = float(accuracy)
-
-            if accuracy > best_accuracy:
-                best_accuracy = accuracy
-                best_model = model_name
-
-        latest_run = model_name
-
-    # ------------------------------------------------------
-    # Footer
-    # ------------------------------------------------------
-
-    lines.append(divider)
-    lines.append("")
-
-    lines.append(f"Total Runs      : {len(summary)}")
-
-    if best_accuracy >= 0:
-        lines.append(
-            f"Best Accuracy   : {best_model} ({best_accuracy:.4f})"
-        )
-    else:
-        lines.append(
-            "Best Accuracy   : -"
+        accuracy = metrics.get(
+            "accuracy",
+            0
         )
 
-    lines.append(
-        f"Latest Run      : {latest_run}"
-    )
+        precision = metrics.get(
+            "precision",
+            0
+        )
+
+        recall = metrics.get(
+            "recall",
+            0
+        )
+
+        f1 = metrics.get(
+            "f1",
+            metrics.get(
+                "f1_score",
+                0
+            )
+        )
+
+
+        training_time = metrics.get(
+            "training_time",
+            "-"
+        )
+
+
+        created = run["start_time"]
+
+
+        row = (
+            f"{index:<4}"
+            f"{run['experiment']:<15}"
+            f"{model:<15}"
+            f"{accuracy:<10.4f}"
+            f"{precision:<10.4f}"
+            f"{recall:<8.4f}"
+            f"{f1:<7.4f}"
+            f"{str(training_time):<8}"
+            f"{run['status']:<10}"
+            f"{str(created)[:10]:<12}"
+        )
+
+        lines.append(row)
+
+
+    lines.append("=" * 110)
+
 
     return "\n".join(lines)
 
 
-def build_table_row(index, run):
-    metrics = run["metrics"]
-    params = run["params"]
+# ==========================================================
+# Save Report
+# ==========================================================
 
-    return (
-        f"{index:<4}"
-        f"{get_model_name(params):<24}"
-        f"{format_metric(metrics, 'accuracy'):<11}"
-        f"{format_metric(metrics, 'precision'):<11}"
-        f"{format_metric(metrics, 'recall'):<11}"
-        f"{format_metric(metrics, 'f1_score'):<11}"
-        f"{format_duration(run['start_time'], run['end_time']):<10}"
-        f"{run['status']:<12}"
-        f"{format_timestamp(run['start_time'])}"
+def save_report(
+    report: str,
+    output_path: Path,
+):
+    """
+    Save generated report to text file.
+    """
+
+    output_path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
     )
 
-# ==========================================================
-# Writer
-# ==========================================================
-
-def save_report(report: str) -> bool:
-    """
-    Save report only if its content has changed.
-
-    Returns
-    -------
-    bool
-        True if report was updated.
-        False if nothing changed.
-    """
-
-    REPORT_DIR.mkdir(parents=True, exist_ok=True)
-
-    if REPORT_FILE.exists():
-
-        current = REPORT_FILE.read_text(
-            encoding="utf-8"
-        )
-
-        if current == report:
-            return False
-
-    REPORT_FILE.write_text(
-        report,
+    with open(
+        output_path,
+        "w",
         encoding="utf-8",
-    )
+    ) as f:
 
-    return True
+        f.write(report)
 
 
 # ==========================================================
@@ -410,46 +326,69 @@ def save_report(report: str) -> bool:
 
 def main():
 
-    print("=" * 60)
-    print("MLflow Summary")
-    print("=" * 60)
+    db_path = ARTIFACT_DIR / "mlflow.db"
 
-    conn = connect_db()
+    output_path = (
+        ARTIFACT_DIR
+        / "training_summary.txt"
+    )
 
-    try:
 
-        runs = get_runs(conn)
+    conn = sqlite3.connect(
+        db_path
+    )
 
-        metrics = get_metrics(conn)
 
-        params = get_params(conn)
+    experiments = get_experiments(
+        conn
+    )
 
-    finally:
+    runs = get_runs(
+        conn
+    )
 
-        conn.close()
+    metrics = get_metrics(
+        conn
+    )
+
+    params = get_params(
+        conn
+    )
+
 
     summary = build_run_summary(
+        experiments,
         runs,
         metrics,
         params,
     )
 
-    report = build_report(summary)
 
-    updated = save_report(report)
+    report = format_run_report(
+        summary
+    )
 
-    print()
 
-    print(f"Runs Found : {len(summary)}")
+    save_report(
+        report,
+        output_path,
+    )
 
-    if updated:
-        print("Report updated.")
-    else:
-        print("Report already up-to-date.")
 
-    print(f"Output : {REPORT_FILE}")
+    conn.close()
 
+
+    print("=" * 60)
+    print("MLflow training summary generated")
+    print(f"Saved at: {output_path}")
+    print("=" * 60)
+
+
+# ==========================================================
+# Entry Point
+# ==========================================================
 
 if __name__ == "__main__":
+
     main()
 
