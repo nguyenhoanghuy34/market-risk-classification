@@ -29,3 +29,5 @@ WAREHOUSE_DIR = DATA_DIR / "warehouse"
 
 RAW_HISTORICAL_DIR = RAW_DIR / "historical"
 RAW_REALTIME_DIR = RAW_DIR / "realtime"
+
+MLFLOW_TRACKING_URI = "file:artifacts/mlruns"
