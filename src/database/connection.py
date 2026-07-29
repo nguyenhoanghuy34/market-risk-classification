@@ -1,45 +1,32 @@
-"""
-PostgreSQL connection.
-"""
-
 import os
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import URL, create_engine
 from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
 
 
-def get_database_url() -> str:
-    """
-    Build PostgreSQL connection URL.
-    """
-    return (
-        "postgresql+psycopg2://"
-        f"{os.getenv('DB_USER')}:"
-        f"{os.getenv('DB_PASSWORD')}@"
-        f"{os.getenv('DB_HOST')}:"
-        f"{os.getenv('DB_PORT')}/"
-        f"{os.getenv('DB_NAME')}"
+def create_db_engine():
+
+    url = URL.create(
+        drivername="postgresql+psycopg2",
+        username=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+        port=int(os.getenv("DB_PORT")),
+        database=os.getenv("DB_NAME"),
     )
 
-
-def create_db_engine():
-    """
-    Create SQLAlchemy engine.
-    """
     return create_engine(
-        get_database_url(),
+        url,
         echo=False,
         future=True,
     )
 
 
 def create_db_session():
-    """
-    Create SQLAlchemy session factory.
-    """
+
     engine = create_db_engine()
 
     return sessionmaker(
