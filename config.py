@@ -44,6 +44,9 @@ MLRUNS_DIR = ARTIFACTS_DIR / "mlruns"
 # MLflow
 # ==================================================
 MLFLOW_DB = PROJECT_ROOT / "artifacts" / "mlflow.db"
+
 MLFLOW_TRACKING_URI = f"sqlite:///{MLFLOW_DB}"
+
+MLFLOW_ARTIFACT_ROOT = PROJECT_ROOT / "artifacts" / "mlruns"
 
 MLFLOW_EXPERIMENT_NAME = "Market Risk Classification"
