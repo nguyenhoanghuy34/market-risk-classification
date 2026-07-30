@@ -9,3 +9,6 @@ python-dotenv
 # Tracking and logging some model version
 mlflow
 
+# Testing framework
+pytest
+

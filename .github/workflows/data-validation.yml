@@ -1,0 +1,37 @@
+name: Data Validation Test
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  data-test:
+    name: Validate Raw Market Data
+
+    runs-on: ubuntu-latest
+
+    steps:
+      # Clone repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Setup Python
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # Install dependencies
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      # Run data validation tests
+      - name: Run Data Quality Tests
+        run: |
+          pytest tests/test_data.py -v
