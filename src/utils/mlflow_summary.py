@@ -15,6 +15,8 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
+from matplotlib import lines
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 ARTIFACT_DIR = PROJECT_ROOT / "artifacts"
@@ -209,17 +211,28 @@ def format_run_report(
 
     lines = []
 
+    experiment_name = (
+        summary[0]["experiment"]
+        if summary
+        else "Unknown"
+    )
+
+    lines.append("=" * 110)
+    lines.append("MLFLOW TRAINING SUMMARY")
+    lines.append(f"Experiment : {experiment_name}")
+    lines.append("=" * 110)
+    lines.append("")
+
     header = (
         f"{'No':<4}"
-        f"{'Experiment':<15}"
-        f"{'Model':<15}"
+        f"{'Model':<25}"
         f"{'Accuracy':<10}"
         f"{'Precision':<10}"
         f"{'Recall':<8}"
-        f"{'F1':<7}"
+        f"{'F1':<8}"
         f"{'Time':<8}"
         f"{'Status':<10}"
-        f"{'Created':<12}"
+        f"{'Created'}"
     )
 
     lines.append("=" * 110)
@@ -255,11 +268,8 @@ def format_run_report(
         )
 
         f1 = metrics.get(
-            "f1",
-            metrics.get(
-                "f1_score",
-                0
-            )
+            "f1_score",
+            0
         )
 
 
@@ -274,8 +284,7 @@ def format_run_report(
 
         row = (
             f"{index:<4}"
-            f"{run['experiment']:<15}"
-            f"{model:<15}"
+            f"{model:<25}"
             f"{accuracy:<10.4f}"
             f"{precision:<10.4f}"
             f"{recall:<8.4f}"
@@ -374,9 +383,7 @@ def main():
         output_path,
     )
 
-
     conn.close()
-
 
     print("=" * 60)
     print("MLflow training summary generated")
