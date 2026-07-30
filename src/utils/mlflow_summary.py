@@ -227,11 +227,11 @@ def format_run_report(
         f"{'No':<4}"
         f"{'Model':<25}"
         f"{'Accuracy':<10}"
-        f"{'Precision':<10}"
-        f"{'Recall':<8}"
-        f"{'F1':<8}"
-        f"{'Time':<8}"
-        f"{'Status':<10}"
+        f"{'Precision':<11}"
+        f"{'Recall':<10}"
+        f"{'F1':<10}"
+        f"{'ROC-AUC':<10}"
+        f"{'Status':<12}"
         f"{'Created'}"
     )
 
@@ -272,6 +272,11 @@ def format_run_report(
             0
         )
 
+        roc_auc = metrics.get(
+            "roc_auc",
+            0,
+        )
+
 
         training_time = metrics.get(
             "training_time",
@@ -279,19 +284,21 @@ def format_run_report(
         )
 
 
-        created = run["start_time"]
+        created = datetime.fromtimestamp(
+            run["start_time"] / 1000
+        ).strftime("%Y-%m-%d %H:%M")
 
 
         row = (
             f"{index:<4}"
             f"{model:<25}"
             f"{accuracy:<10.4f}"
-            f"{precision:<10.4f}"
-            f"{recall:<8.4f}"
-            f"{f1:<7.4f}"
-            f"{str(training_time):<8}"
-            f"{run['status']:<10}"
-            f"{str(created)[:10]:<12}"
+            f"{precision:<11.4f}"
+            f"{recall:<10.4f}"
+            f"{f1:<10.4f}"
+            f"{roc_auc:<10.4f}"
+            f"{run['status']:<12}"
+            f"{created}"
         )
 
         lines.append(row)
@@ -299,6 +306,22 @@ def format_run_report(
 
     lines.append("=" * 110)
 
+    best_run = max(
+        summary,
+        key=lambda x: x["metrics"].get("accuracy", 0),
+    )
+
+    lines.append("")
+    lines.append("=" * 110)
+    lines.append(f"Total Runs    : {len(summary)}")
+    lines.append(
+        f"Best Accuracy : {best_run['metrics'].get('accuracy', 0):.4f}"
+    )
+    lines.append(
+        f"Best Model    : {best_run['params'].get('model', 'Unknown')}"
+    )
+        
+    lines.append("=" * 110)
 
     return "\n".join(lines)
 

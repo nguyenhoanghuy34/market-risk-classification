@@ -1,0 +1,23 @@
+artifact_path: file:///D:/Subject/CV2026/Market%20Risk%20Classification/market-risk-classification/artifacts/mlruns/models/m-d3268b3d5a7b4b738daf11acd6f3b0b2/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.skops
+    predict_fn: predict
+    python_version: 3.13.2
+  sklearn:
+    code: null
+    pickled_model: model.skops
+    serialization_format: skops
+    sklearn_version: 1.9.0
+    skops_trusted_types: null
+mlflow_version: 3.14.0
+model_id: m-d3268b3d5a7b4b738daf11acd6f3b0b2
+model_size_bytes: 9154
+model_uuid: m-d3268b3d5a7b4b738daf11acd6f3b0b2
+prompts: null
+run_id: f8c4d23319b4463793e8167a80289465
+utc_time_created: '2026-07-30 03:36:54.857193'
