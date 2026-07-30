@@ -12,3 +12,10 @@ mlflow
 # Testing framework
 pytest
 
+# Machine learning framework
+tensorflow
+
+# For data visualization
+ta
+tqdm 
+pyarrow

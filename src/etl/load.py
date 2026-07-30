@@ -1,14 +1,17 @@
 from pathlib import Path
-
 import pandas as pd
 
 
-def load(df: pd.DataFrame, output_path: str | Path) -> None:
+def load(df: pd.DataFrame, path: str | Path):
 
-    output_path = Path(output_path)
+    path = Path(path)
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
-    df.to_csv(output_path, index=False)
-
-    print(f"Saved: {output_path}")
+    df.to_csv(
+        path,
+        index=False,
+    )

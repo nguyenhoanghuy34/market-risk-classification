@@ -1,77 +1,125 @@
-from __future__ import annotations
-
-from datetime import datetime
 from pathlib import Path
 
-import pandas as pd
-from binance.client import Client
+import csv
+import time
+import requests
 from tqdm import tqdm
 
 
-class HistoricalDownloader:
-    def __init__(self):
-        self.client = Client()
+# =====================================================
+# Config
+# =====================================================
 
-    def download(
-        self,
-        symbol: str,
-        interval: str,
-        start_date: str,
-        end_date: str,
-        output_dir: str = "data/raw/historical",
-    ) -> Path:
+SYMBOL = "BTCUSDT"
+INTERVAL = "1m"
 
-        print(f"\nDownloading {symbol} ({interval})...")
+LIMIT = 1000
+TARGET_ROWS = 2_000_000
 
-        klines = self.client.get_historical_klines(
-            symbol=symbol,
-            interval=interval,
-            start_str=start_date,
-            end_str=end_date,
+BASE_URL = "https://api.binance.com/api/v3/klines"
+
+OUTPUT_DIR = Path("data/raw/historical") / SYMBOL
+OUTPUT_FILE = OUTPUT_DIR / f"{SYMBOL}_{INTERVAL}.csv"
+
+
+# =====================================================
+# Create folder
+# =====================================================
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# =====================================================
+# CSV Header
+# =====================================================
+
+HEADER = [
+    "open_time",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "close_time",
+    "quote_asset_volume",
+    "number_of_trades",
+    "taker_buy_base_volume",
+    "taker_buy_quote_volume",
+    "ignore",
+]
+
+
+# =====================================================
+# Downloader
+# =====================================================
+
+def download():
+
+    start_time = 0
+
+    total = 0
+
+    first_write = not OUTPUT_FILE.exists()
+
+    with open(
+        OUTPUT_FILE,
+        "a",
+        newline="",
+        encoding="utf-8",
+    ) as f:
+
+        writer = csv.writer(f)
+
+        if first_write:
+            writer.writerow(HEADER)
+
+        pbar = tqdm(
+            total=TARGET_ROWS,
+            desc="Downloading",
+            unit="rows",
         )
 
-        columns = [
-            "open_time",
-            "open",
-            "high",
-            "low",
-            "close",
-            "volume",
-            "close_time",
-            "quote_asset_volume",
-            "number_of_trades",
-            "taker_buy_base_volume",
-            "taker_buy_quote_volume",
-            "ignore",
-        ]
+        while total < TARGET_ROWS:
 
-        df = pd.DataFrame(klines, columns=columns)
+            params = {
+                "symbol": SYMBOL,
+                "interval": INTERVAL,
+                "limit": LIMIT,
+                "startTime": start_time,
+            }
 
-        df["open_time"] = pd.to_datetime(df["open_time"], unit="ms")
-        df["close_time"] = pd.to_datetime(df["close_time"], unit="ms")
+            response = requests.get(BASE_URL, params=params, timeout=30)
 
-        numeric_cols = [
-            "open",
-            "high",
-            "low",
-            "close",
-            "volume",
-            "quote_asset_volume",
-            "taker_buy_base_volume",
-            "taker_buy_quote_volume",
-        ]
+            response.raise_for_status()
 
-        df[numeric_cols] = df[numeric_cols].astype(float)
-        df["number_of_trades"] = df["number_of_trades"].astype(int)
+            data = response.json()
 
-        save_dir = Path(output_dir) / symbol
-        save_dir.mkdir(parents=True, exist_ok=True)
+            if len(data) == 0:
+                break
 
-        output_path = save_dir / f"{symbol}_{interval}.csv"
+            writer.writerows(data)
 
-        df.to_csv(output_path, index=False)
+            batch = len(data)
 
-        print(f"Saved: {output_path}")
-        print(f"Rows : {len(df):,}")
+            total += batch
 
-        return output_path
+            pbar.update(batch)
+
+            start_time = data[-1][6] + 1
+
+            time.sleep(0.05)
+
+        pbar.close()
+
+    print("=" * 60)
+    print("Finished")
+    print(f"Saved : {OUTPUT_FILE}")
+    print(f"Rows  : {total:,}")
+
+
+# =====================================================
+# Main
+# =====================================================
+
+if __name__ == "__main__":
+    download()

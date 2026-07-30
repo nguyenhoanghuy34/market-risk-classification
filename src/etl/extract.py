@@ -1,11 +1,10 @@
 from pathlib import Path
-
 import pandas as pd
 
 
-def extract(csv_path: str | Path) -> pd.DataFrame:
+def extract(path: str | Path) -> pd.DataFrame:
     """
-    Read raw CSV from Binance.
+    Read raw csv.
     """
 
-    return pd.read_csv(csv_path)
+    return pd.read_csv(path)

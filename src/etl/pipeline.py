@@ -5,30 +5,37 @@ from .transform import transform
 from .load import load
 
 
-class ETLPipeline:
+RAW_PATH = Path(
+    "data/raw/historical/BTCUSDT/BTCUSDT_1m.csv"
+)
 
-    def __init__(self):
+OUTPUT_PATH = Path(
+    "data/processed/BTCUSDT/BTCUSDT_1m_clean.csv"
+)
 
-        self.raw_path = Path(
-            "data/raw/historical/BTCUSDT/BTCUSDT_1m.csv"
-        )
 
-        self.output_path = Path(
-            "data/processed/BTCUSDT/BTCUSDT_1m_clean.csv"
-        )
+def ETL():
 
-    def run(self):
+    df = extract(RAW_PATH)
 
-        print("========== ETL START ==========")
+    df = transform(df)
 
-        df = extract(self.raw_path)
+    load(
+        df,
+        OUTPUT_PATH,
+    )
 
-        print(f"Extracted: {len(df):,} rows")
+    print("=" * 60)
 
-        df = transform(df)
+    print("ETL Finished")
 
-        print(f"After Transform: {len(df):,} rows")
+    print(df.shape)
 
-        load(df, self.output_path)
+    print(f"Saved -> {OUTPUT_PATH}")
 
-        print("========== ETL DONE ==========")
+    return df
+
+
+if __name__ == "__main__":
+
+    ETL()
