@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import mlflow
 import mlflow.sklearn
 
@@ -6,6 +9,8 @@ from config import (
     MLFLOW_ARTIFACT_ROOT,
     MLFLOW_EXPERIMENT_NAME,
 )
+
+from src.utils.mlflow_summary import main as generate_mlflow_summary
 
 
 class MLflowTracker:
@@ -71,3 +76,7 @@ class MLflowTracker:
             model,
             name="model",
         )
+
+
+    def generate_summary(self):
+        generate_mlflow_summary()
