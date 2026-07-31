@@ -1,0 +1,22 @@
+artifact_path: file:///D:/Subject/CV2026/Market%20Risk%20Classification/market-risk-classification/artifacts/mlruns/models/m-4ed63a591c154a85ad6e5ebfdbc39168/artifacts
+flavors:
+  python_function:
+    data: model.ubj
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.xgboost
+    python_version: 3.13.2
+  xgboost:
+    code: null
+    data: model.ubj
+    model_class: xgboost.sklearn.XGBClassifier
+    model_format: ubj
+    xgb_version: 3.3.0
+mlflow_version: 3.14.0
+model_id: m-4ed63a591c154a85ad6e5ebfdbc39168
+model_size_bytes: 1361249
+model_uuid: m-4ed63a591c154a85ad6e5ebfdbc39168
+prompts: null
+run_id: 43e3443f1b08484b92fb6f2b82d96206
+utc_time_created: '2026-07-31 10:05:02.203623'

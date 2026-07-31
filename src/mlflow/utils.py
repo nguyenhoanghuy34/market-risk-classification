@@ -30,7 +30,7 @@ def classification_metrics(
             y_pred
         ),
 
-        "f1_score": f1_score(
+        "f1": f1_score(
             y_true,
             y_pred
         ),

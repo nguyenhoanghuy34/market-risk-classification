@@ -19,3 +19,6 @@ tensorflow
 ta
 tqdm 
 pyarrow
+
+# For model training xgboost
+xgboost
